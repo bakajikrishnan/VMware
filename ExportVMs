@@ -1,0 +1,49 @@
+# Connect to the vSphere server
+Connect-VIServer -Server <vSphere server> -User <username> -Password <password>
+
+# Get all VMs in the cluster
+$cluster = Get-Cluster
+$vms = Get-VM -Location $cluster
+
+# Create an array to store the VM information
+$vmInfo = @()
+
+# Iterate through each VM and retrieve the required information
+foreach ($vm in $vms) {
+    $vmDetails = New-Object -TypeName PSObject
+
+    # Retrieve basic VM properties
+    $vmDetails | Add-Member -MemberType NoteProperty -Name "Name" -Value $vm.Name
+    $vmDetails | Add-Member -MemberType NoteProperty -Name "PowerState" -Value $vm.PowerState
+    $vmDetails | Add-Member -MemberType NoteProperty -Name "NumCPU" -Value $vm.NumCPU
+    $vmDetails | Add-Member -MemberType NoteProperty -Name "MemoryGB" -Value $vm.MemoryGB
+
+    # Retrieve network adapter information
+    $networkAdapters = Get-NetworkAdapter -VM $vm
+    $networkInfo = @()
+    foreach ($adapter in $networkAdapters) {
+        $adapterInfo = New-Object -TypeName PSObject
+        $adapterInfo | Add-Member -MemberType NoteProperty -Name "Name" -Value $adapter.Name
+        $adapterInfo | Add-Member -MemberType NoteProperty -Name "NetworkName" -Value $adapter.NetworkName
+        $adapterInfo | Add-Member -MemberType NoteProperty -Name "MacAddress" -Value $adapter.MacAddress
+        $networkInfo += $adapterInfo
+    }
+    $vmDetails | Add-Member -MemberType NoteProperty -Name "NetworkAdapters" -Value $networkInfo
+
+    # Retrieve datastore information
+    $datastores = Get-Datastore -VM $vm
+    $datastoreInfo = @()
+    foreach ($datastore in $datastores) {
+        $datastoreInfo += $datastore.Name
+    }
+    $vmDetails | Add-Member -MemberType NoteProperty -Name "Datastores" -Value $datastoreInfo
+
+    # Add the VM details to the array
+    $vmInfo += $vmDetails
+}
+
+# Export the VM information to a CSV file
+$vmInfo | Export-Csv -Path "C:\VMInfo.csv" -NoTypeInformation
+
+# Disconnect from the vSphere server
+Disconnect-VIServer -Server <vSphere server> -Confirm:$false
